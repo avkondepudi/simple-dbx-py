@@ -18,6 +18,15 @@ class Files:
     self.key = apikey
     self.dbx = dropbox.Dropbox(apikey)
 
+  def getDropboxFileInstance(self):
+    return dropbox.files.FileMetadata
+
+  def getDropboxFolderInstance(self):
+    return dropbox.files.FolderMetadata
+
+  def getDropboxDeletedInstance(self):
+    return dropbox.files.DeletedMetadata
+
   '''
   read file from directory in Dropbox
 
@@ -99,6 +108,37 @@ class Files:
       return error_message.error
 
   '''
+  get contents of directory as list
+  quite slow for level > 1
+
+  level - depth of directory
+  return_name_only - True for name, False for entire dir location
+  '''
+  def getContentsOfDirAsList(
+    self,
+    src: str,
+    level: int = 1,
+    return_name_only: bool = True,
+    **kwargs):
+
+    try:
+      curr_level = (1 if "curr_level" not in kwargs else kwargs["curr_level"])
+      main = ([] if "main" not in kwargs else kwargs["main"])
+
+      res = self.dbx.files_list_folder(src)
+
+      for entry in res.entries:
+        if isinstance(entry, dropbox.files.FolderMetadata) and curr_level < level:
+          main += self.getContentsOfDirAsDict(entry.path_display, level=level, return_name_only=return_name_only, main=main, curr_level=curr_level+1)
+        elif not isinstance(entry, dropbox.files.DeletedMetadata):
+          main += [(entry.name if return_name_only else entry.path_display)]
+
+      return main
+
+    except dropbox.exceptions.ApiError as error_message:
+      return error_message.error
+
+  '''
   get contents of directory in organized format
 
   pass return_as as tree or all
@@ -138,4 +178,3 @@ class Files:
 
     except dropbox.exceptions.ApiError as error_message:
       return error_message.error
-
